@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scientific Calculator — Fixed</title>
+  <style>
+    :root{--bg:#0f1724;--accent:#06b6d4;--btn:#111827;--text:#e6eef8;--danger:#ef4444;--radius:12px;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071027 0%, #071a2b 100%);color:var(--text)}
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .calc{width:420px;background:rgba(255,255,255,0.02);border-radius:var(--radius);padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.04)}
+    .brand{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+    .logo{width:10px;height:10px;border-radius:3px;background:var(--accent)}
+    h1{font-size:14px;margin:0}
+    .display{height:70px;border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;border:1px solid rgba(255,255,255,0.03);margin-bottom:14px}
+    .history{font-size:12px;color:rgba(230,238,248,0.65)}
+    .result{font-size:28px;font-weight:600;margin-top:4px}
+    .pad{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+    button.key{height:52px;border-radius:10px;border:0;background:var(--btn);color:var(--text);font-size:15px;font-weight:600;cursor:pointer}
+    .op{background:linear-gradient(180deg,var(--accent),#0891b2);color:#032027}
+    .del{background:linear-gradient(180deg,var(--danger),#dc2626)}
+    .zero{grid-column:span 2}
+    .foot{margin-top:12px;font-size:12px;color:rgba(230,238,248,0.6);text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="calc" role="application" aria-label="Scientific calculator">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Scientific Calculator — Fixed</h1>
+          <div style="font-size:12px;color:rgba(230,238,248,0.7)">Supports sin, cos, tan (radians), sqrt, log (base 10), ln, ^, %, π, e</div>
+        </div>
+      </div>
+
+      <div class="display" id="display">
+        <div class="history" id="history">&nbsp;</div>
+        <div class="result" id="result">0</div>
+      </div>
+
+      <div class="pad">
+        <button class="key del" data-action="clear">C</button>
+        <button class="key" data-action="back">⌫</button>
+        <button class="key" data-value="(">(</button>
+        <button class="key" data-value=")">)</button>
+        <button class="key" data-value="%">%</button>
+        <button class="key op" data-action="sqrt">√</button>
+
+        <button class="key" data-action="pi">π</button>
+        <button class="key" data-action="e">e</button>
+        <button class="key" data-action="pow">^</button>
+        <button class="key" data-value="/">÷</button>
+        <button class="key" data-action="ln">ln</button>
+        <button class="key" data-action="log">log</button>
+
+        <button class="key" data-value="7">7</button>
+        <button class="key" data-value="8">8</button>
+        <button class="key" data-value="9">9</button>
+        <button class="key op" data-value="*">×</button>
+        <button class="key" data-action="sin">sin</button>
+        <button class="key" data-action="cos">cos</button>
+
+        <button class="key" data-value="4">4</button>
+        <button class="key" data-value="5">5</button>
+        <button class="key" data-value="6">6</button>
+        <button class="key op" data-value="-">−</button>
+        <button class="key" data-action="tan">tan</button>
+        <button class="key" data-action="abs">abs</button>
+
+        <button class="key" data-value="1">1</button>
+        <button class="key" data-value="2">2</button>
+        <button class="key" data-value="3">3</button>
+        <button class="key op" data-value="+">+</button>
+        <button class="key" data-value=".">.</button>
+        <button class="key op" data-action="equals">=</button>
+
+        <button class="key zero" data-value="0">0</button>
+        <button class="key" data-value=","> ,</button>
+        <button class="key" data-value=""> </button>
+        <button class="key" data-value=""> </button>
+        <button class="key" data-value=""> </button>
+        <button class="key" data-value=""> </button>
+      </div>
+
+      <div class="foot">Try: <em>sin(Math.PI/2)</em> or type using buttons: <em>sin(</em> then <em>π</em> then <em>/</em> then <em>2</em></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const display = document.getElementById('result');
+      const history = document.getElementById('history');
+      const keys = document.querySelectorAll('.key');
+      let expr = '';
+
+      function update(){ display.textContent = expr === '' ? '0' : expr; }
+      function append(ch){ expr += ch; update(); }
+      function clearAll(){ expr = ''; history.textContent = '\u00A0'; update(); }
+      function backspace(){ expr = expr.slice(0,-1); update(); }
+
+      // Create a safe evaluation by text replacing known tokens into Math.* expressions,
+      // then validating that no unknown identifiers remain before evaluating with Function().
+      function prepareExpression(s){
+        let t = String(s);
+        // Normalize common unicode minus/dot
+        t = t.replace(/÷/g,'/').replace(/×/g,'*').replace(/−/g,'-').replace(/\u221A/g,'sqrt');
+
+        // Replace percent after numbers: 50% -> (50/100)
+        t = t.replace(/(\d+(?:\.\d+)?)%/g,'($1/100)');
+
+        // Replace common functions with Math equivalents
+        // Order matters: replace ln before log to avoid collisions
+        t = t.replace(/\bln\(/gi,'Math.log(');           // natural log
+        t = t.replace(/\blog\(/gi,'Math.log10(');       // log base 10
+        t = t.replace(/\bsqrt\(/gi,'Math.sqrt(');
+        t = t.replace(/\bsin\(/gi,'Math.sin(');
+        t = t.replace(/\bcos\(/gi,'Math.cos(');
+        t = t.replace(/\btan\(/gi,'Math.tan(');
+        t = t.replace(/\babs\(/gi,'Math.abs(');
+
+        // Support ^ as exponent -> **
+        t = t.replace(/\^/g,'**');
+
+        // Replace constants pi and e (case-insensitive)
+        t = t.replace(/\bpi\b/gi,'Math.PI');
+        t = t.replace(/\be\b/gi,'Math.E');
+
+        // Allow using 'Math.' directly if user typed that
+
+        // After replacements, ensure no stray alphabetical identifiers remain
+        // Remove allowed 'Math' occurrences for check
+        const check = t.replace(/Math/g, '').replace(/PI/g,'').replace(/E/g,'');
+        if (/[a-zA-Z]/.test(check)) {
+          throw new Error('Invalid token in expression');
+        }
+
+        return t;
+      }
+
+      function safeEval(s){
+        const prepared = prepareExpression(s);
+        // wrap with a small IIFE that ensures Math.log10 exists
+        const code = '(function(){ if(!Math.log10) Math.log10 = function(x){ return Math.log(x)/Math.LN10; }; return ('+prepared+'); })()';
+        // Evaluate in a restricted Function
+        return Function('"use strict"; return ('+code+')')();
+      }
+
+      function calculate(){
+        if(expr.trim()==='') return;
+        try{
+          const val = safeEval(expr);
+          history.textContent = expr + ' =';
+          if(typeof val === 'number' && Number.isFinite(val)){
+            // round to 12 significant decimal places to avoid float noise
+            expr = String(Math.round((val + Number.EPSILON) * 1e12)/1e12);
+          } else {
+            expr = String(val);
+          }
+          update();
+        }catch(err){
+          display.textContent = 'Error';
+          setTimeout(()=>update(),900);
+        }
+      }
+
+      keys.forEach(k=>{
+        const v = k.dataset.value;
+        const a = k.dataset.action;
+        k.addEventListener('click', ()=>{
+          if(a === 'clear') return clearAll();
+          if(a === 'back') return backspace();
+          if(a === 'equals') return calculate();
+          if(a === 'sqrt') return append('sqrt(');
+          if(a === 'pow') return append('^');
+          if(a === 'sin') return append('sin(');
+          if(a === 'cos') return append('cos(');
+          if(a === 'tan') return append('tan(');
+          if(a === 'log') return append('log(');
+          if(a === 'ln') return append('ln(');
+          if(a === 'pi') return append('pi');
+          if(a === 'e') return append('e');
+          if(a === 'abs') return append('abs(');
+          if(v) return append(v);
+        });
+      });
+
+      // keyboard support: allow typing functions and operators, Enter to evaluate
+      window.addEventListener('keydown', e=>{
+        const k = e.key;
+        if(/[0-9]/.test(k)) append(k);
+        else if(k === '.') append('.');
+        else if(k === '+') append('+');
+        else if(k === '-') append('-');
+        else if(k === '*') append('*');
+        else if(k === '/') append('/');
+        else if(k === '(') append('(');
+        else if(k === ')') append(')');
+        else if(k === '^') append('^');
+        else if(k === '%') append('%');
+        else if(k.toLowerCase() === 'p') { /* allow typing pi by p then i */ }
+        else if(k === 'Enter') { e.preventDefault(); calculate(); }
+        else if(k === 'Backspace') backspace();
+        else if(k === 'Escape') clearAll();
+      });
+
+      clearAll();
+    })();
+  </script>
+</body>
+</html>
